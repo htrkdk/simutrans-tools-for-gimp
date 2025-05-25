@@ -5,7 +5,19 @@ GIMP3.0 tools for Simutrans add-on making
 
 - GIMP 3.0 or newer
 
-## About this Program
+## Usage
+
+Clone this repository or download the script to appropriate directory. Examples:
+
+- Linux: `~/.config/GIMP/3.0/plug-ins/simutrans-tools-for-gimp/simutrans-tools-for-gimp.py`
+- Windows: `%APPDATA%\GIMP\3.0\plug-ins\simutrans-tools-for-gimp\simutrans-tools-for-gimp.py`
+
+## Known Issues
+
+- After color selection, GIMP reports leakage of GEGL buffer.
+- I don't have any plan to reimplement some multi-layer operations since GIMP officially supports them.
+
+## About This Script
 
 This program is a reimplementation/modification of a script originally licensed under the Simutrans Artistic License.
 
