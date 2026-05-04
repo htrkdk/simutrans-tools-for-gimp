@@ -20,6 +20,7 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 import sys
+import os
 
 import gi
 gi.require_version('Gimp', '3.0')
@@ -79,156 +80,196 @@ l_transparent_color = [
 ]
 
 
-class SimutransSpecialColorsHelper(Gimp.PlugIn):
-    """
-    Simutrans Special Colors Helper
-
-    Difference from the original script:
-    - allows multiple layer operation
-    - "Only in current selection" option now available for all operations
-
-    Supported operations:
-        select, remove, repair, lighten / darken, lookup (convert)
-    """
-
+class SimutransTool(Gimp.PlugIn):
     def do_query_procedures(self):
-        return ["plug-in-htrkdk-simutrans-special-colors-helper"]
+        return ["plug-in-htrkdk-simutrans-special-colors-helper",
+                "plug-in-htrkdk-simutrans-export"]
 
     def do_set_i18n(self, name):
         return False
 
     def do_create_procedure(self, name):
-        procedure = Gimp.ImageProcedure.new(
-            self, name, Gimp.PDBProcType.PLUGIN, self.run, None)
+        if name == "plug-in-htrkdk-simutrans-special-colors-helper":
+            procedure = Gimp.ImageProcedure.new(
+                self, name, Gimp.PDBProcType.PLUGIN, self.run_color_helper, None)
 
-        procedure.set_image_types("*")
+            procedure.set_image_types("*")
 
-        procedure.set_menu_label("Special Colors Helper...")
-        procedure.add_menu_path('<Image>/Simutrans/Color Tools')
+            procedure.set_menu_label("Special Colors Helper...")
+            procedure.add_menu_path('<Image>/Simutrans/Color Tools')
 
-        procedure.set_documentation(
-            "Select, remove or repair Simutrans special colors",
-            name
-        )
-        procedure.set_attribution("htrkdk", "htrkdk", "2025")
+            procedure.set_documentation(
+                "Select, remove or repair Simutrans special colors",
+                name
+            )
+            procedure.set_attribution("htrkdk", "htrkdk", "2025")
 
-        op_choices = Gimp.Choice.new()
-        op_choices.add("op_select", 0,
-                       "Select special colors",
-                       "Select special colors")
-        op_choices.add("op_remove", 1,
-                       "Remove special colors",
-                       "Remove special colors")
-        op_choices.add("op_repair", 2,
-                       "Repair special colors",
-                       "Repair special colors")
-        op_choices.add("op_lighten", 3,
-                       "Lighten special colors",
-                       "Lighten special colors")
-        op_choices.add("op_darken", 4,
-                       "Darken special colors",
-                       "Darken special colors")
-        op_choices.add("op_lookup", 5,
-                       "Convert to special colors",
-                       "Convert to special colors")
-        procedure.add_choice_argument(
-            "operation", _("O_peration to perform"),
-            "Operation to perform",
-            op_choices,
-            "op_select",
-            GObject.ParamFlags.READWRITE
-        )
-        procedure.add_boolean_argument(
-            "non_darkening_greys", _("_Non-darkening greys"),
-            "Non-darkening greys",
-            True,
-            GObject.ParamFlags.READWRITE
-        )
-        procedure.add_boolean_argument(
-            "window_colors", ("_Windows"),
-            "Windows",
-            True,
-            GObject.ParamFlags.READWRITE
-        )
-        procedure.add_boolean_argument(
-            "primary_player_colors", _("Player colors (Pr_imary)"),
-            "Player colors (Primary)",
-            True,
-            GObject.ParamFlags.READWRITE
-        )
-        procedure.add_boolean_argument(
-            "secondary_player_colors", _("Player colors (S_econdary)"),
-            "Player colors (Secondary)",
-            True,
-            GObject.ParamFlags.READWRITE
-        )
-        procedure.add_boolean_argument(
-            "lights", _("Li_ghts (except lighten/darken)"),
-            "Lights (except lighten/darken)",
-            False,
-            GObject.ParamFlags.READWRITE
-        )
-        procedure.add_boolean_argument(
-            "transparent_color", _("_Transparent (except lighten/darken)"),
-            "Transparent (except lighten/darken)",
-            False,
-            GObject.ParamFlags.READWRITE
-        )
-        layer_choices = Gimp.Choice.new()
-        layer_choices.add("layer_selected", 0,
-                          "Selected flat layers",
-                          "help")
-        layer_choices.add("layer_all", 1,
-                          "All flat layers",
-                          "help")
-        layer_choices.add("layer_merged", 2,
-                          "Sample merged (only select)",
-                          "help")
-        procedure.add_choice_argument(
-            "layers_option", _("_Apply to"),
-            "Apply to",
-            layer_choices,
-            "layer_selected",
-            GObject.ParamFlags.READWRITE
-        )
-        sel_choices = Gimp.Choice.new()
-        sel_choices.add("sel_replace", 0,
-                        "Replace current selection",
-                        "Replace current selection")
-        sel_choices.add("sel_current", 1,
-                        "Only in current selection",
-                        "Only in current selection")
-        sel_choices.add("sel_add", 2,
-                        "Add to current selection (only select)",
-                        "Add to current selection (only select)")
-        sel_choices.add("sel_subtract", 3,
-                        "Subtract from current selection (only select)",
-                        "Subtract from current selection (only select)")
-        procedure.add_choice_argument(
-            "select_mode", _("Selection _mode"),
-            "Selection mode",
-            sel_choices,
-            "sel_replace",
-            GObject.ParamFlags.READWRITE
-        )
-        procedure.add_double_argument(
-            "threshold", _("T_hreshold (only repair)"),
-            "Threshold (only repair)",
-            0, 255, 15,
-            GObject.ParamFlags.READWRITE
-        )
-        procedure.add_file_argument(
-            "lookup_file", _("Look_up image (only convert)"),
-            "Look_up image (only convert)",
-            Gimp.FileChooserAction.OPEN,
-            False,
-            None,
-            GObject.ParamFlags.READWRITE
-        )
+            op_choices = Gimp.Choice.new()
+            op_choices.add("op_select", 0,
+                        "Select special colors",
+                        "Select special colors")
+            op_choices.add("op_remove", 1,
+                        "Remove special colors",
+                        "Remove special colors")
+            op_choices.add("op_repair", 2,
+                        "Repair special colors",
+                        "Repair special colors")
+            op_choices.add("op_lighten", 3,
+                        "Lighten special colors",
+                        "Lighten special colors")
+            op_choices.add("op_darken", 4,
+                        "Darken special colors",
+                        "Darken special colors")
+            op_choices.add("op_lookup", 5,
+                        "Convert to special colors",
+                        "Convert to special colors")
+            procedure.add_choice_argument(
+                "operation", _("O_peration to perform"),
+                "Operation to perform",
+                op_choices,
+                "op_select",
+                GObject.ParamFlags.READWRITE
+            )
+            procedure.add_boolean_argument(
+                "non_darkening_greys", _("_Non-darkening greys"),
+                "Non-darkening greys",
+                True,
+                GObject.ParamFlags.READWRITE
+            )
+            procedure.add_boolean_argument(
+                "window_colors", ("_Windows"),
+                "Windows",
+                True,
+                GObject.ParamFlags.READWRITE
+            )
+            procedure.add_boolean_argument(
+                "primary_player_colors", _("Player colors (Pr_imary)"),
+                "Player colors (Primary)",
+                True,
+                GObject.ParamFlags.READWRITE
+            )
+            procedure.add_boolean_argument(
+                "secondary_player_colors", _("Player colors (S_econdary)"),
+                "Player colors (Secondary)",
+                True,
+                GObject.ParamFlags.READWRITE
+            )
+            procedure.add_boolean_argument(
+                "lights", _("Li_ghts (except lighten/darken)"),
+                "Lights (except lighten/darken)",
+                False,
+                GObject.ParamFlags.READWRITE
+            )
+            procedure.add_boolean_argument(
+                "transparent_color", _("_Transparent (except lighten/darken)"),
+                "Transparent (except lighten/darken)",
+                False,
+                GObject.ParamFlags.READWRITE
+            )
+            layer_choices = Gimp.Choice.new()
+            layer_choices.add("layer_selected", 0,
+                            "Selected flat layers",
+                            "help")
+            layer_choices.add("layer_all", 1,
+                            "All flat layers",
+                            "help")
+            layer_choices.add("layer_merged", 2,
+                            "Sample merged (only select)",
+                            "help")
+            procedure.add_choice_argument(
+                "layers_option", _("_Apply to"),
+                "Apply to",
+                layer_choices,
+                "layer_selected",
+                GObject.ParamFlags.READWRITE
+            )
+            sel_choices = Gimp.Choice.new()
+            sel_choices.add("sel_replace", 0,
+                            "Replace current selection",
+                            "Replace current selection")
+            sel_choices.add("sel_current", 1,
+                            "Only in current selection",
+                            "Only in current selection")
+            sel_choices.add("sel_add", 2,
+                            "Add to current selection (only select)",
+                            "Add to current selection (only select)")
+            sel_choices.add("sel_subtract", 3,
+                            "Subtract from current selection (only select)",
+                            "Subtract from current selection (only select)")
+            procedure.add_choice_argument(
+                "select_mode", _("Selection _mode"),
+                "Selection mode",
+                sel_choices,
+                "sel_replace",
+                GObject.ParamFlags.READWRITE
+            )
+            procedure.add_double_argument(
+                "threshold", _("T_hreshold (only repair)"),
+                "Threshold (only repair)",
+                0, 255, 15,
+                GObject.ParamFlags.READWRITE
+            )
+            procedure.add_file_argument(
+                "lookup_file", _("Look_up image (only convert)"),
+                "Look_up image (only convert)",
+                Gimp.FileChooserAction.OPEN,
+                False,
+                None,
+                GObject.ParamFlags.READWRITE
+            )
 
-        return procedure
+            return procedure
 
-    def run(self, procedure, run_mode, image, drawables, config, run_data):
+        elif name == "plug-in-htrkdk-simutrans-export":
+            procedure = Gimp.ImageProcedure.new(
+                self, name, Gimp.PDBProcType.PLUGIN, self.run_exporter, None)
+
+            procedure.set_image_types("*")
+
+            procedure.set_menu_label("Export with transparent background...")
+            procedure.add_menu_path('<Image>/Simutrans/Image Tools')
+
+            procedure.set_documentation(
+                "Export to PNG adding a transparent special color background",
+                name
+            )
+            procedure.set_attribution("htrkdk", "htrkdk", "2026")
+
+            procedure.add_string_argument(
+                "suffix", _("_Custom suffix (e.g. -01)"),
+                "Custom suffix (e.g. -01)",
+                "",
+                GObject.ParamFlags.READWRITE
+            )
+            procedure.add_boolean_argument(
+                "flatten_alpha", _("_Flatten Alpha Channel"),
+                "Flatten Alpha Channel",
+                True,
+                GObject.ParamFlags.READWRITE
+            )
+            procedure.add_double_argument(
+                "alpha_threshold", _("Alpha _Threshold"),
+                "Alpha Threshold",
+                0,      # min
+                1,      # max
+                0.5,    # default
+                GObject.ParamFlags.READWRITE
+            )
+
+            return procedure
+
+    def run_color_helper(self, procedure, run_mode, image, drawables, config, run_data):
+        """
+        Simutrans Special Colors Helper
+
+        Difference from the original script:
+        - allows multiple layer operation
+        - "Only in current selection" option now available for all operations
+
+        Supported operations:
+            select, remove, repair, lighten / darken, lookup (convert)
+        """
+
         if run_mode == Gimp.RunMode.INTERACTIVE:
             GimpUi.init("plug-in-htrkdk-simutrans-special-colors-helper")
             dialog = GimpUi.ProcedureDialog.new(procedure, config)
@@ -460,5 +501,136 @@ class SimutransSpecialColorsHelper(Gimp.PlugIn):
         return procedure.new_return_values(Gimp.PDBStatusType.SUCCESS,
                                            GLib.Error())
 
+    def run_exporter(self, procedure, run_mode, image, drawables, config, run_data):
+        """
+        Simutrans Export
 
-Gimp.main(SimutransSpecialColorsHelper.__gtype__, sys.argv)
+        Difference from the original script:
+        - Allows fully transparent pixels since Simutrans officially supports them.
+        - Ignore threshold alpha value if flatten image is disabled.
+        """
+
+        if run_mode == Gimp.RunMode.INTERACTIVE:
+            GimpUi.init("plug-in-htrkdk-simutrans-export")
+            dialog = GimpUi.ProcedureDialog.new(procedure, config)
+            dialog.fill(None)
+
+        if not dialog.run():
+            dialog.destroy()
+            return procedure.new_return_values(Gimp.PDBStatusType.CANCEL,
+                                               GLib.Error())
+        else:
+            dialog.destroy()
+
+        suffix = config.get_property("suffix")
+        flatten_alpha = config.get_property("flatten_alpha")
+        alpha_threshold = config.get_property("alpha_threshold")
+        background_color = Gegl.Color.new(l_transparent_color[0])
+
+        # modify filename
+        orig_file = image.get_file()
+
+        if not orig_file:
+            # TODO: call a dialog to fill in proper filename or save image as xcf
+            Gimp.message("Please save your image as a xcf file before exportation.")
+
+            return procedure.new_return_values(Gimp.PDBStatusType.CANCEL,
+                                               GLib.Error())
+
+        orig_name = orig_file.get_path()
+        base_name, orig_ext = os.path.splitext(orig_name)
+
+        if orig_ext == ".gz" or orig_ext == ".bz2":
+            base_name, orig_ext = os.path.splitext(base_name)
+
+        export_name = base_name + suffix + ".png"
+
+        Gimp.context_push()
+        Gimp.context_set_background(background_color)
+        export_image = image.duplicate()
+        export_image.undo_group_start()
+
+        visible = export_image.pick_correlate_layer(0, 0)
+
+        if flatten_alpha:
+            # set alpha threshold
+            export_layer = export_image.merge_visible_layers(Gimp.MergeType.CLIP_TO_IMAGE)
+            filter_threshold_alpha = Gimp.DrawableFilter.new(
+                export_layer,
+                "gimp:threshold-alpha",
+                None
+            )
+            filter_threshold_alpha.set_opacity(alpha_threshold)
+            export_layer.merge_filter(filter_threshold_alpha)
+
+            # insert background layer if transparent
+            if visible == -1:
+                bg_layer = Gimp.Layer.new(
+                    export_image,
+                    "bg_tmp",
+                    export_image.get_width(),
+                    export_image.get_height(),
+                    Gimp.ImageType.RGB_IMAGE,
+                    1.0,
+                    Gimp.LayerMode.NORMAL
+                )
+                export_image.insert_layer(bg_layer, 0, 0)
+                export_layer = export_image.merge_visible_layers(Gimp.MergeType.CLIP_TO_IMAGE)
+
+            # replace background color with default of Simutrans
+            pick_status, prev_bg = \
+                export_image.pick_color([export_layer], 1, 1, False, False, 0)
+
+            if pick_status:
+                export_image.select_color(
+                    Gimp.ChannelOps.REPLACE,
+                    export_layer,
+                    prev_bg
+                )
+                if not Gimp.Selection.is_empty(export_image):
+                    export_layer.edit_fill(Gimp.FillType.BACKGROUND)
+
+                Gimp.Selection.none(export_image)
+
+            # flatten alpha
+            export_layer = export_image.flatten()
+
+        else:
+            export_layer = export_image.merge_visible_layers(Gimp.MergeType.CLIP_TO_IMAGE)
+
+            # if background is not transparent, fix it to default of Simutrans
+            if visible != -1:
+                pick_status, prev_bg = \
+                    export_image.pick_color([export_layer], 1, 1, False, False, 0)
+
+                if pick_status:
+                    export_image.select_color(
+                        Gimp.ChannelOps.REPLACE,
+                        export_layer,
+                        prev_bg
+                    )
+                    if not Gimp.Selection.is_empty(export_image):
+                        export_layer.edit_fill(Gimp.FillType.BACKGROUND)
+
+                    Gimp.Selection.none(export_image)
+
+        # save modified image
+        Gimp.file_save(
+            Gimp.RunMode.NONINTERACTIVE,
+            export_image,
+            Gio.File.new_for_path(export_name),
+            None
+        )
+
+        Gimp.message("Exported png file "+str(export_name))
+
+        Gimp.context_pop()
+        export_image.undo_group_end()
+        export_image.delete()
+        Gimp.displays_flush()
+
+        return procedure.new_return_values(Gimp.PDBStatusType.SUCCESS,
+                                           GLib.Error())
+
+
+Gimp.main(SimutransTool.__gtype__, sys.argv)
