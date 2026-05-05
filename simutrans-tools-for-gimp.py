@@ -83,7 +83,8 @@ l_transparent_color = [
 class SimutransTool(Gimp.PlugIn):
     def do_query_procedures(self):
         return ["plug-in-htrkdk-simutrans-special-colors-helper",
-                "plug-in-htrkdk-simutrans-export"]
+                "plug-in-htrkdk-simutrans-export",
+                "plug-in-htrkdk-simutrans-set-grid"]
 
     def do_set_i18n(self, name):
         return False
@@ -257,6 +258,53 @@ class SimutransTool(Gimp.PlugIn):
             )
 
             return procedure
+
+        elif name == "plug-in-htrkdk-simutrans-set-grid":
+            procedure = Gimp.ImageProcedure.new(
+                self, name, Gimp.PDBProcType.PLUGIN, self.run_grid, None)
+
+            procedure.set_image_types("*")
+
+            procedure.set_menu_label("Set tiles grid...")
+            procedure.add_menu_path('<Image>/Simutrans/Image Tools')
+
+            procedure.set_documentation(
+                "Set grid for chosen tileset size",
+                name
+            )
+            procedure.set_attribution("htrkdk", "htrkdk", "2026")
+
+            size_choices = Gimp.Choice.new()
+            size_choices.add("32", 0, "32", "32")
+            size_choices.add("48", 1, "48", "48")
+            size_choices.add("64", 2, "64", "64")
+            size_choices.add("96", 3, "96", "96")
+            size_choices.add("128", 4, "128", "128")
+            size_choices.add("160", 5, "160", "160")
+            size_choices.add("192", 6, "192", "192")
+            size_choices.add("256", 7, "256", "256")
+            procedure.add_choice_argument(
+                "tile_size", _("Tile _Size"),
+                "Tile Size",
+                size_choices,
+                "128",
+                GObject.ParamFlags.READWRITE
+            )
+            procedure.add_boolean_argument(
+                "resize_image", _("Resize _Image"),
+                "Resize Image",
+                False,
+                GObject.ParamFlags.READWRITE
+            )
+            procedure.add_boolean_argument(
+                "resize_layer", _("Resize _Layer"),
+                "Resize Layer",
+                False,
+                GObject.ParamFlags.READWRITE
+            )
+
+            return procedure
+
 
     def run_color_helper(self, procedure, run_mode, image, drawables, config, run_data):
         """
@@ -627,6 +675,65 @@ class SimutransTool(Gimp.PlugIn):
         Gimp.context_pop()
         export_image.undo_group_end()
         export_image.delete()
+        Gimp.displays_flush()
+
+        return procedure.new_return_values(Gimp.PDBStatusType.SUCCESS,
+                                           GLib.Error())
+
+    def run_grid(self, procedure, run_mode, image, drawables, config, run_data):
+        """
+        Simutrans Set Grid
+        """
+
+        if run_mode == Gimp.RunMode.INTERACTIVE:
+            GimpUi.init("plug-in-htrkdk-simutrans-set-grid")
+            dialog = GimpUi.ProcedureDialog.new(procedure, config)
+            dialog.fill(None)
+
+        if not dialog.run():
+            dialog.destroy()
+            return procedure.new_return_values(Gimp.PDBStatusType.CANCEL,
+                                               GLib.Error())
+        else:
+            dialog.destroy()
+
+        spacing = int(config.get_property("tile_size"))
+        resize_image = config.get_property("resize_image")
+        resize_layer = config.get_property("resize_layer")
+
+        # get size of original image
+        height = image.get_height()
+        width = image.get_width()
+
+        image.undo_group_start()
+        Gimp.context_push()
+
+        if resize_image:
+            if height % spacing == 0:
+                new_height = height
+            else:
+                new_height = (height // spacing + 1) * spacing
+
+            if width % spacing == 0:
+                new_width = width
+            else:
+                new_width = (width // spacing + 1) * spacing
+
+            if height != new_height or width != new_width:
+                image.resize(new_width, new_height, 0, 0)
+
+            if resize_layer:
+                for layer in all_layers_in_image(image.get_layers()):
+                    if layer.get_height() == height and layer.get_width() == width:
+                        layer.resize_to_image_size()
+
+        image.grid_set_spacing(spacing, spacing)
+        image.grid_set_offset(0, 0)
+
+        Gimp.message("Changed tile size of the image to "+str(spacing))
+
+        Gimp.context_pop()
+        image.undo_group_end()
         Gimp.displays_flush()
 
         return procedure.new_return_values(Gimp.PDBStatusType.SUCCESS,
