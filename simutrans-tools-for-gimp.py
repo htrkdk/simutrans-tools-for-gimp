@@ -106,23 +106,23 @@ class SimutransTool(Gimp.PlugIn):
 
             op_choices = Gimp.Choice.new()
             op_choices.add("op_select", 0,
-                        "Select special colors",
-                        "Select special colors")
+                           "Select special colors",
+                           "Select special colors")
             op_choices.add("op_remove", 1,
-                        "Remove special colors",
-                        "Remove special colors")
+                           "Remove special colors",
+                           "Remove special colors")
             op_choices.add("op_repair", 2,
-                        "Repair special colors",
-                        "Repair special colors")
+                           "Repair special colors",
+                           "Repair special colors")
             op_choices.add("op_lighten", 3,
-                        "Lighten special colors",
-                        "Lighten special colors")
+                           "Lighten special colors",
+                           "Lighten special colors")
             op_choices.add("op_darken", 4,
-                        "Darken special colors",
-                        "Darken special colors")
+                           "Darken special colors",
+                           "Darken special colors")
             op_choices.add("op_lookup", 5,
-                        "Convert to special colors",
-                        "Convert to special colors")
+                           "Convert to special colors",
+                           "Convert to special colors")
             procedure.add_choice_argument(
                 "operation", _("O_peration to perform"),
                 "Operation to perform",
@@ -168,14 +168,14 @@ class SimutransTool(Gimp.PlugIn):
             )
             layer_choices = Gimp.Choice.new()
             layer_choices.add("layer_selected", 0,
-                            "Selected flat layers",
-                            "help")
+                              "Selected flat layers",
+                              "help")
             layer_choices.add("layer_all", 1,
-                            "All flat layers",
-                            "help")
+                              "All flat layers",
+                              "help")
             layer_choices.add("layer_merged", 2,
-                            "Sample merged (only select)",
-                            "help")
+                              "Sample merged (only select)",
+                              "help")
             procedure.add_choice_argument(
                 "layers_option", _("_Apply to"),
                 "Apply to",
