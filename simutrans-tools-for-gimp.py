@@ -28,56 +28,102 @@ gi.require_version('GimpUi', '3.0')
 from gi.repository import Gimp, GimpUi, GObject, Gegl, GLib, Gio
 
 
-# GIMP specific functions
+class GimpWrapper():
+    """
+    GIMP specific wrapper functions
+    """
+    @classmethod
+    def N_(cls, message):
+        return message
 
-def N_(message):
-    return message
+    @classmethod
+    def _(cls, message):
+        return GLib.dgettext(None, message)
+
+    @classmethod
+    def all_layers_in_image(cls, l_root_layers: list):
+        """
+        Recursively retrieves all leaf (non-group) layers from a layer hierarchy.
+
+        Traverses through any Gimp.LayerGroup objects encountered and flattens
+        the structure into a single list of drawable layers.
+
+        Parameters
+        ----------
+        l_root_layers: list
+            A list of Gimp.Layer objects to start the traversal from.
+
+        Returns
+        -------
+        l_all_layers: list
+            A flat list containing all individual Gimp.Layer objects found.
+        """
+        l_all_layers = []
+
+        for layer in l_root_layers:
+            if layer.is_group() is True:
+                l_children = layer.get_children()
+                l_all_layers.extend(cls.all_layers_in_image(l_children))
+            else:
+                l_all_layers.append(layer)
+
+        return l_all_layers
+
+    @classmethod
+    def generate_choices(cls, l_choices: list):
+        """
+        Creates and populates a Gimp.Choice object from a list of options.
+
+        Each element in the input list is assigned an incremental integer ID based
+        on its position (index). The provided label is used for both the display
+        name and the associated tooltip/help text in the GIMP UI.
+
+        Parameters
+        ----------
+        l_choices: list
+            A list of pairs (list or tuple), where each contains:
+            1. identifier (str): The unique internal key (nick) for the choice.
+            2. label (str): The human-readable string displayed in the UI.
+
+        Returns
+        -------
+        gimp_choices: Gimp.Choice
+            A Gimp.Choice object populated with the specified options.
+        """
+        gimp_choices = Gimp.Choice.new()
+
+        for choice_iter, choice_candidate in enumerate(l_choices):
+            gimp_choices.add(choice_candidate[0], choice_iter,
+                             choice_candidate[1],
+                             choice_candidate[1])
+
+        return gimp_choices
 
 
-def _(message):
-    return GLib.dgettext(None, message)
-
-
-def all_layers_in_image(l_root_layers: list):
-    l_all_layers = []
-
-    for layer in l_root_layers:
-        if layer.is_group() is True:
-            l_children = layer.get_children()
-            l_all_layers.extend(all_layers_in_image(l_children))
-        else:
-            l_all_layers.append(layer)
-
-    return l_all_layers
-
-
-# CONSTANTS AND LISTS
-
-l_non_darkening_greys = [
-    "#6B6B6B", "#9B9B9B", "#B3B3B3", "#C9C9C9", "#DFDFDF"
-]
-
-l_window_colors = [
-    "#4D4D4D", "#57656F", "#C1B1D1", "#E3E3FF"
-]
-
-l_primary_player_colors = [
-    "#244B67", "#395E7C", "#4C7191", "#6084A7", "#7497BD", "#88ABD3",
-    "#9CBEE9", "#B0D2FF"
-]
-
-l_secondary_player_colors = [
-    "#7B5803", "#8E6F04", "#A18605", "#B49D07", "#C6B408", "#D9CB0A",
-    "#ECE20B", "#FFF90D"
-]
-
-l_lights = [
-    "#7F9BF1", "#FFFF53", "#FF211D", "#01DD01", "#FF017F", "#0101FF"
-]
-
-l_transparent_color = [
-    "#E7FFFF"
-]
+class SimutransPalette():
+    """
+    Simutrans specific constants
+    """
+    NON_DARKENING_GREYS = (
+        "#6B6B6B", "#9B9B9B", "#B3B3B3", "#C9C9C9", "#DFDFDF"
+    )
+    WINDOW_COLORS = (
+        "#4D4D4D", "#57656F", "#C1B1D1", "#E3E3FF"
+    )
+    PRIMARY_PLAYER_COLORS = (
+        "#244B67", "#395E7C", "#4C7191", "#6084A7", "#7497BD", "#88ABD3",
+        "#9CBEE9", "#B0D2FF"
+    )
+    SECONDARY_PLAYER_COLORS = (
+        "#7B5803", "#8E6F04", "#A18605", "#B49D07", "#C6B408", "#D9CB0A",
+        "#ECE20B", "#FFF90D"
+    )
+    LIGHTS = (
+        "#7F9BF1", "#FFFF53", "#FF211D", "#01DD01", "#FF017F", "#0101FF"
+    )
+    TRANSPARENT_COLOR = (
+        "#E7FFFF"
+    )
 
 
 class SimutransTool(Gimp.PlugIn):
@@ -105,113 +151,101 @@ class SimutransTool(Gimp.PlugIn):
             )
             procedure.set_attribution("htrkdk", "htrkdk", "2025")
 
-            op_choices = Gimp.Choice.new()
-            op_choices.add("op_select", 0,
-                           "Select special colors",
-                           "Select special colors")
-            op_choices.add("op_remove", 1,
-                           "Remove special colors",
-                           "Remove special colors")
-            op_choices.add("op_repair", 2,
-                           "Repair special colors",
-                           "Repair special colors")
-            op_choices.add("op_lighten", 3,
-                           "Lighten special colors",
-                           "Lighten special colors")
-            op_choices.add("op_darken", 4,
-                           "Darken special colors",
-                           "Darken special colors")
-            op_choices.add("op_lookup", 5,
-                           "Convert to special colors",
-                           "Convert to special colors")
+            op_choices = GimpWrapper.generate_choices(
+                [["op_select", "Select special colors"],
+                 ["op_remove", "Remove special colors"],
+                 ["op_repair", "Repair special colors"],
+                 ["op_lighten", "Lighten special colors"],
+                 ["op_darken", "Darken special colors"],
+                 ["op_lookup", "Convert to special colors"]]
+            )
             procedure.add_choice_argument(
-                "operation", _("O_peration to perform"),
+                "operation",
+                GimpWrapper._("O_peration to perform"),
                 "Operation to perform",
                 op_choices,
                 "op_select",
                 GObject.ParamFlags.READWRITE
             )
             procedure.add_boolean_argument(
-                "non_darkening_greys", _("_Non-darkening greys"),
+                "non_darkening_greys",
+                GimpWrapper._("_Non-darkening greys"),
                 "Non-darkening greys",
                 True,
                 GObject.ParamFlags.READWRITE
             )
             procedure.add_boolean_argument(
-                "window_colors", ("_Windows"),
+                "window_colors",
+                GimpWrapper._("_Windows"),
                 "Windows",
                 True,
                 GObject.ParamFlags.READWRITE
             )
             procedure.add_boolean_argument(
-                "primary_player_colors", _("Player colors (Pr_imary)"),
+                "primary_player_colors",
+                GimpWrapper._("Player colors (Pr_imary)"),
                 "Player colors (Primary)",
                 True,
                 GObject.ParamFlags.READWRITE
             )
             procedure.add_boolean_argument(
-                "secondary_player_colors", _("Player colors (S_econdary)"),
+                "secondary_player_colors",
+                GimpWrapper._("Player colors (S_econdary)"),
                 "Player colors (Secondary)",
                 True,
                 GObject.ParamFlags.READWRITE
             )
             procedure.add_boolean_argument(
-                "lights", _("Li_ghts (except lighten/darken)"),
+                "lights",
+                GimpWrapper._("Li_ghts (except lighten/darken)"),
                 "Lights (except lighten/darken)",
                 False,
                 GObject.ParamFlags.READWRITE
             )
             procedure.add_boolean_argument(
-                "transparent_color", _("_Transparent (except lighten/darken)"),
+                "transparent_color",
+                GimpWrapper._("_Transparent (except lighten/darken)"),
                 "Transparent (except lighten/darken)",
                 False,
                 GObject.ParamFlags.READWRITE
             )
-            layer_choices = Gimp.Choice.new()
-            layer_choices.add("layer_selected", 0,
-                              "Selected flat layers",
-                              "help")
-            layer_choices.add("layer_all", 1,
-                              "All flat layers",
-                              "help")
-            layer_choices.add("layer_merged", 2,
-                              "Sample merged (only select)",
-                              "help")
+            layer_choices = GimpWrapper.generate_choices(
+                [["layer_selected", "Selected flat layers"],
+                 ["layer_all", "All flat layers"],
+                 ["layer_merged", "Sample merged (only select)"]]
+            )
             procedure.add_choice_argument(
-                "layers_option", _("_Apply to"),
+                "layers_option",
+                GimpWrapper._("_Apply to"),
                 "Apply to",
                 layer_choices,
                 "layer_selected",
                 GObject.ParamFlags.READWRITE
             )
-            sel_choices = Gimp.Choice.new()
-            sel_choices.add("sel_replace", 0,
-                            "Replace current selection",
-                            "Replace current selection")
-            sel_choices.add("sel_current", 1,
-                            "Only in current selection",
-                            "Only in current selection")
-            sel_choices.add("sel_add", 2,
-                            "Add to current selection (only select)",
-                            "Add to current selection (only select)")
-            sel_choices.add("sel_subtract", 3,
-                            "Subtract from current selection (only select)",
-                            "Subtract from current selection (only select)")
+            sel_choices = GimpWrapper.generate_choices(
+                [["sel_replace", "Replace current selection"],
+                 ["sel_current", "Only in current selection"],
+                 ["sel_add", "Add to current selection (only select)"],
+                 ["sel_subtract", "Subtract from current selection (only select)"]]
+            )
             procedure.add_choice_argument(
-                "select_mode", _("Selection _mode"),
+                "select_mode",
+                GimpWrapper._("Selection _mode"),
                 "Selection mode",
                 sel_choices,
                 "sel_replace",
                 GObject.ParamFlags.READWRITE
             )
             procedure.add_double_argument(
-                "threshold", _("T_hreshold (only repair)"),
+                "threshold",
+                GimpWrapper._("T_hreshold (only repair)"),
                 "Threshold (only repair)",
-                0, 255, 15,
+                0, 1, 0.05, # min, max, default
                 GObject.ParamFlags.READWRITE
             )
             procedure.add_file_argument(
-                "lookup_file", _("Look_up image (only convert)"),
+                "lookup_file",
+                GimpWrapper._("Look_up image (only convert)"),
                 "Look_up image (only convert)",
                 Gimp.FileChooserAction.OPEN,
                 False,
@@ -237,23 +271,24 @@ class SimutransTool(Gimp.PlugIn):
             procedure.set_attribution("htrkdk", "htrkdk", "2026")
 
             procedure.add_string_argument(
-                "suffix", _("_Custom suffix (e.g. -01)"),
+                "suffix",
+                GimpWrapper._("_Custom suffix (e.g. -01)"),
                 "Custom suffix (e.g. -01)",
                 "",
                 GObject.ParamFlags.READWRITE
             )
             procedure.add_boolean_argument(
-                "flatten_alpha", _("_Flatten Alpha Channel"),
+                "flatten_alpha",
+                GimpWrapper._("_Flatten Alpha Channel"),
                 "Flatten Alpha Channel",
                 True,
                 GObject.ParamFlags.READWRITE
             )
             procedure.add_double_argument(
-                "alpha_threshold", _("Alpha _Threshold"),
+                "alpha_threshold",
+                GimpWrapper._("Alpha _Threshold"),
                 "Alpha Threshold",
-                0,      # min
-                1,      # max
-                0.5,    # default
+                0, 1, 0.5,  # min, max, default
                 GObject.ParamFlags.READWRITE
             )
 
@@ -261,7 +296,7 @@ class SimutransTool(Gimp.PlugIn):
 
         elif name == "plug-in-htrkdk-simutrans-set-grid":
             procedure = Gimp.ImageProcedure.new(
-                self, name, Gimp.PDBProcType.PLUGIN, self.run_grid, None)
+                self, name, Gimp.PDBProcType.PLUGIN, self.run_gird_setter, None)
 
             procedure.set_image_types("*")
 
@@ -274,30 +309,34 @@ class SimutransTool(Gimp.PlugIn):
             )
             procedure.set_attribution("htrkdk", "htrkdk", "2026")
 
-            size_choices = Gimp.Choice.new()
-            size_choices.add("32", 0, "32", "32")
-            size_choices.add("48", 1, "48", "48")
-            size_choices.add("64", 2, "64", "64")
-            size_choices.add("96", 3, "96", "96")
-            size_choices.add("128", 4, "128", "128")
-            size_choices.add("160", 5, "160", "160")
-            size_choices.add("192", 6, "192", "192")
-            size_choices.add("256", 7, "256", "256")
+            size_choices = GimpWrapper.generate_choices(
+                [["32", "32"],
+                 ["48", "48"],
+                 ["64", "64"],
+                 ["96", "96"],
+                 ["128", "128"],
+                 ["160", "160"],
+                 ["192", "192"],
+                 ["256", "256"]]
+            )
             procedure.add_choice_argument(
-                "tile_size", _("Tile _Size"),
+                "tile_size",
+                GimpWrapper._("Tile _Size"),
                 "Tile Size",
                 size_choices,
                 "128",
                 GObject.ParamFlags.READWRITE
             )
             procedure.add_boolean_argument(
-                "resize_image", _("Resize _Image"),
+                "resize_image",
+                GimpWrapper._("Resize _Image"),
                 "Resize Image",
                 False,
                 GObject.ParamFlags.READWRITE
             )
             procedure.add_boolean_argument(
-                "resize_layer", _("Resize _Layer"),
+                "resize_layer",
+                GimpWrapper._("Resize _Layer"),
                 "Resize Layer",
                 False,
                 GObject.ParamFlags.READWRITE
@@ -305,17 +344,27 @@ class SimutransTool(Gimp.PlugIn):
 
             return procedure
 
-
     def run_color_helper(self, procedure, run_mode, image, drawables, config, run_data):
         """
         Simutrans Special Colors Helper
 
+        Make some modifications to Simutrans special colors.
+        Supported operations:
+        - select: select specified special colors.
+        - remove: convert specified special colors to non-special.
+        - repair: select colors close to specified one and convert them to special.
+        - lighten / darken: modify brightness of non-darkening greys.
+        - lookup (convert): convert TTD special colors to those of Simutrans.
+
+        Supported method of selections:
+        - replace: replace current selection
+        - current: operation is done only in current selection
+        - add: add to current selection (only for select operation)
+        - subtract: subtract from current selection (only for select operation)
+
         Difference from the original script:
         - allows multiple layer operation
         - "Only in current selection" option now available for all operations
-
-        Supported operations:
-            select, remove, repair, lighten / darken, lookup (convert)
         """
 
         if run_mode == Gimp.RunMode.INTERACTIVE:
@@ -357,13 +406,13 @@ class SimutransTool(Gimp.PlugIn):
 
         # Add selected special color sets to the list
         if non_darkening_greys:
-            l_color_set.extend(l_non_darkening_greys)
+            l_color_set.extend(SimutransPalette.NON_DARKENING_GREYS)
         if window_colors:
-            l_color_set.extend(l_window_colors)
+            l_color_set.extend(SimutransPalette.WINDOW_COLORS)
         if primary_player_colors:
-            l_color_set.extend(l_primary_player_colors)
+            l_color_set.extend(SimutransPalette.PRIMARY_PLAYER_COLORS)
         if secondary_player_colors:
-            l_color_set.extend(l_secondary_player_colors)
+            l_color_set.extend(SimutransPalette.SECONDARY_PLAYER_COLORS)
 
         if operation == "op_darken":
             pass
@@ -371,13 +420,13 @@ class SimutransTool(Gimp.PlugIn):
             l_color_set.reverse()
         else:
             if lights:
-                l_color_set.extend(l_lights)
+                l_color_set.extend(SimutransPalette.LIGHTS)
             if transparent_color:
-                l_color_set.extend(l_transparent_color)
+                l_color_set.extend(SimutransPalette.TRANSPARENT_COLOR)
 
         # Special initialization
         if layers_option == "layer_all":
-            l_layers = all_layers_in_image(image.get_layers())
+            l_layers = GimpWrapper.all_layers_in_image(image.get_layers())
         else:
             l_layers = drawables
 
@@ -392,7 +441,7 @@ class SimutransTool(Gimp.PlugIn):
             if select_mode != "sel_add":
                 Gimp.Selection.none(image)
         elif operation == "op_repair":
-            Gimp.context_set_sample_threshold(threshold/255.0)
+            Gimp.context_set_sample_threshold(threshold)
         elif operation == "op_lookup":
             if lookup_file is None:
                 Gimp.message(
@@ -553,9 +602,20 @@ class SimutransTool(Gimp.PlugIn):
         """
         Simutrans Export
 
-        Difference from the original script:
-        - Allows fully transparent pixels since Simutrans officially supports them.
-        - Ignore threshold alpha value if flatten image is disabled.
+        Exports the image to a PNG file with Simutrans-specific transparency handling.
+        The export behavior is determined by the 'flatten_alpha' setting:
+
+        1. When flatten_alpha is enabled:
+           - The alpha channel is binarized based on the alpha_threshold.
+           - Any resulting transparent or background areas are converted to the
+             Simutrans special transparent color (#E7FFFF).
+           - The alpha channel is then removed (flattened).
+
+        2. When flatten_alpha is disabled:
+           - The alpha channel is preserved in the output.
+           - If the background is already transparent, it is exported as-is.
+           - If the background is opaque, the existing background color is replaced
+             with the Simutrans special transparent color (#E7FFFF).
         """
 
         if run_mode == Gimp.RunMode.INTERACTIVE:
@@ -573,7 +633,7 @@ class SimutransTool(Gimp.PlugIn):
         suffix = config.get_property("suffix")
         flatten_alpha = config.get_property("flatten_alpha")
         alpha_threshold = config.get_property("alpha_threshold")
-        background_color = Gegl.Color.new(l_transparent_color[0])
+        background_color = Gegl.Color.new(SimutransPalette.TRANSPARENT_COLOR[0])
 
         # modify filename
         orig_file = image.get_file()
@@ -680,9 +740,18 @@ class SimutransTool(Gimp.PlugIn):
         return procedure.new_return_values(Gimp.PDBStatusType.SUCCESS,
                                            GLib.Error())
 
-    def run_grid(self, procedure, run_mode, image, drawables, config, run_data):
+    def run_gird_setter(self, procedure, run_mode, image, drawables, config, run_data):
         """
         Simutrans Set Grid
+
+        Configures the image grid for Simutrans tilesets.
+        This utility aligns the image structure with Simutrans tile requirements by:
+
+        1. Setting the GIMP visual grid spacing to the specified tile size and
+           resetting the offset to (0, 0).
+        2. If 'resize_image' is enabled, the image dimensions are rounded up to the
+           nearest multiples of the tile size to ensure full tile coverage.
+        3. Optionally resizing layers to match the new image dimensions.
         """
 
         if run_mode == Gimp.RunMode.INTERACTIVE:
@@ -723,7 +792,7 @@ class SimutransTool(Gimp.PlugIn):
                 image.resize(new_width, new_height, 0, 0)
 
             if resize_layer:
-                for layer in all_layers_in_image(image.get_layers()):
+                for layer in GimpWrapper.all_layers_in_image(image.get_layers()):
                     if layer.get_height() == height and layer.get_width() == width:
                         layer.resize_to_image_size()
 
