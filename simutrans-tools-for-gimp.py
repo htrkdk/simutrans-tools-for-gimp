@@ -348,7 +348,7 @@ class SimutransTool(Gimp.PlugIn):
         """
         Simutrans Special Colors Helper
 
-        Make some modifications to Simutrans special colors.
+        Make some modifications to pixels painted with Simutrans special colors.
         Supported operations:
         - select: select specified special colors.
         - remove: convert specified special colors to non-special.
